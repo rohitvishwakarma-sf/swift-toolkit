@@ -18,9 +18,21 @@ class EPUBViewController: ReaderViewController {
   
     var popoverUserconfigurationAnchor: UIBarButtonItem?
     var userSettingNavigationController: UserSettingsNavigationController
-
-    init(publication: Publication, locator: Locator?, bookId: Book.Id, books: BookRepository, bookmarks: BookmarkRepository, resourcesServer: ResourcesServer) {
-        let navigator = EPUBNavigatorViewController(publication: publication, initialLocation: locator, resourcesServer: resourcesServer)
+    
+    @objc func highlightSelection() {
+            if let navigator = navigator as? SelectableNavigator, let selection = navigator.currentSelection {
+                let highlight = Highlight(bookId: bookId, locator: selection.locator, color: .yellow)
+                saveHighlight(highlight)
+                navigator.clearSelection()
+            }s
+        }
+    
+    init(publication: Publication, locator: Locator?, bookId: Book.Id, books: BookRepository, bookmarks: BookmarkRepository,highlights:HighlightRepository, resourcesServer: ResourcesServer) {
+        
+        
+        var configuration = EPUBNavigatorViewController.Configuration()
+        configuration.editingActions.append(EditingAction(title: "Highlight", action: #selector(highlightSelection)))s
+        let navigator = EPUBNavigatorViewController(publication: publication, initialLocation: locator, resourcesServer: resourcesServer,config: configuration)
 
         let settingsStoryboard = UIStoryboard(name: "UserSettings", bundle: nil)
         userSettingNavigationController = settingsStoryboard.instantiateViewController(withIdentifier: "UserSettingsNavigationController") as! UserSettingsNavigationController
@@ -29,7 +41,7 @@ class EPUBViewController: ReaderViewController {
         userSettingNavigationController.advancedSettingsViewController =
             (settingsStoryboard.instantiateViewController(withIdentifier: "AdvancedSettingsViewController") as! AdvancedSettingsViewController)
         
-        super.init(navigator: navigator, publication: publication, bookId: bookId, books: books, bookmarks: bookmarks)
+        super.init(navigator: navigator, publication: publication, bookId: bookId, books: books, bookmarks: bookmarks,highlights: highlights)
         
         navigator.delegate = self
     }
@@ -152,10 +164,10 @@ extension EPUBViewController: UserSettingsNavigationControllerDelegate {
     
 }
 
-extension EPUBViewController: UIPopoverPresentationControllerDelegate {
-    // Prevent the popOver to be presented fullscreen on iPhones.
-    func adaptivePresentationStyle(for controller: UIPresentationController, traitCollection: UITraitCollection) -> UIModalPresentationStyle
-    {
-        return .none
-    }
-}
+//extension EPUBViewController: UIPopoverPresentationControllerDelegate {
+//    // Prevent the popOver to be presented fullscreen on iPhones.
+//    func adaptivePresentationStyle(for controller: UIPresentationController, traitCollection: UITraitCollection) -> UIModalPresentationStyle
+//    {
+//        return .none
+//    }
+//}

@@ -17,4 +17,35 @@ extension Locator: Codable {
         var container = encoder.singleValueContainer()
         try container.encode(jsonString)
     }
+    
+   
 }
+//extension Locator.Text: StringProtocol {
+//    public typealias UTF8View = <#type#>
+//
+//    public typealias UTF16View = <#type#>
+//
+//    public typealias UnicodeScalarView = <#type#>
+//
+//    public var startIndex: String.Index {
+//        <#code#>
+//    }
+//
+//    public var endIndex: String.Index {
+//        <#code#>
+//    }
+//
+//    public mutating func write(_ string: String) {
+//        <#code#>
+//    }
+//
+//    public func write<Target>(to target: inout Target) where Target : TextOutputStream {
+//        <#code#>
+//    }
+//
+//    public var description: String {
+//        <#code#>
+//    }
+//
+//
+//}

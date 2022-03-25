@@ -37,17 +37,19 @@ final class ReaderModule: ReaderModuleAPI {
     private let books: BookRepository
     private let bookmarks: BookmarkRepository
     private let resourcesServer: ResourcesServer
+    private let highlights: HighlightRepository
     
     /// Sub-modules to handle different publication formats (eg. EPUB, CBZ)
     var formatModules: [ReaderFormatModule] = []
     
     private let factory = ReaderFactory()
     
-    init(delegate: ReaderModuleDelegate?, books: BookRepository, bookmarks: BookmarkRepository, resourcesServer: ResourcesServer) {
+    init(delegate: ReaderModuleDelegate?, books: BookRepository, bookmarks: BookmarkRepository,highlights:HighlightRepository, resourcesServer: ResourcesServer) {
         self.delegate = delegate
         self.books = books
         self.bookmarks = bookmarks
         self.resourcesServer = resourcesServer
+        self.highlights = highlights
         
         formatModules = [
             CBZModule(delegate: self),
@@ -79,7 +81,7 @@ final class ReaderModule: ReaderModuleAPI {
         }
 
         do {
-            let readerViewController = try module.makeReaderViewController(for: publication, locator: book.locator, bookId: bookId, books: books, bookmarks: bookmarks, resourcesServer: resourcesServer)
+            let readerViewController = try module.makeReaderViewController(for: publication, locator: book.locator, bookId: bookId, books: books, bookmarks: bookmarks,highlights: highlights, resourcesServer: resourcesServer)
             present(readerViewController)
         } catch {
             delegate.presentError(error, from: navigationController)
@@ -102,7 +104,7 @@ extension ReaderModule: ReaderFormatModuleDelegate {
     }
     
     func presentOutline(of publication: Publication, bookId: Book.Id, delegate: OutlineTableViewControllerDelegate?, from viewController: UIViewController) {
-        let outlineTableVC: OutlineTableViewController = factory.make(publication: publication, bookId: bookId, bookmarks: bookmarks)
+        let outlineTableVC: OutlineTableViewController = factory.make(publication: publication, bookId: bookId, bookmarks: bookmarks,highlights: highlights)
         outlineTableVC.delegate = delegate
         viewController.present(UINavigationController(rootViewController: outlineTableVC), animated: true)
     }

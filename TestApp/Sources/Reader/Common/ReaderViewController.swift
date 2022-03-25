@@ -17,6 +17,7 @@ import R2Navigator
 import R2Shared
 import SwiftSoup
 import WebKit
+import SwiftUI
 
 
 /// This class is meant to be subclassed by each publication format view controller. It contains the shared behavior, eg. navigation bar toggling.
@@ -29,6 +30,7 @@ class ReaderViewController: UIViewController, Loggable {
     let bookId: Book.Id
     private let books: BookRepository
     private let bookmarks: BookmarkRepository
+    private let highlights: HighlightRepository?
 
     private(set) var stackView: UIStackView!
     private lazy var positionLabel = UILabel()
@@ -41,14 +43,21 @@ class ReaderViewController: UIViewController, Loggable {
         return try! NSRegularExpression(pattern: "[\\p{Ll}\\p{Lu}\\p{Lt}\\p{Lo}]{2}")
     }()
     
-    init(navigator: UIViewController & Navigator, publication: Publication, bookId: Book.Id, books: BookRepository, bookmarks: BookmarkRepository) {
+    private var highlightContextMenu: UIHostingController<HighlightContextMenu>?
+        private let highlightDecorationGroup = "highlights"
+        private var currentHighlightCancellable: AnyCancellable?
+
+        init(navigator: UIViewController & Navigator, publication: Publication, bookId: Book.Id, books: BookRepository, bookmarks: BookmarkRepository, highlights: HighlightRepository? = nil) {
         self.navigator = navigator
         self.publication = publication
         self.bookId = bookId
         self.books = books
         self.bookmarks = bookmarks
+            self.highlights = highlights
 
         super.init(nibName: nil, bundle: nil)
+            addHighlightDecorationsObserverOnce()
+                    updateHighlightDecorations()
         
         NotificationCenter.default.addObserver(self, selector: #selector(voiceOverStatusDidChange), name: UIAccessibility.voiceOverStatusDidChangeNotification, object: nil)
     }
@@ -184,6 +193,79 @@ class ReaderViewController: UIViewController, Loggable {
             .store(in: &subscriptions)
     }
     
+    // MARK: - Highlights
+       
+       private func addHighlightDecorationsObserverOnce() {
+           if highlights == nil { return }
+
+           if let decorator = self.navigator as? DecorableNavigator {
+               decorator.observeDecorationInteractions(inGroup: highlightDecorationGroup) { event in
+                   self.activateDecoration(event)
+               }
+           }
+       }
+
+       private func updateHighlightDecorations() {
+           guard let highlights = highlights else { return }
+
+           highlights.all(for: bookId)
+               .assertNoFailure()
+               .sink { highlights in
+                   if let decorator = self.navigator as? DecorableNavigator {
+                       let decorations = highlights.map { Decoration(id: $0.id, locator: $0.locator, style: .highlight(tint: $0.color.uiColor, isActive: false)) }
+                       decorator.apply(decorations: decorations, in: self.highlightDecorationGroup)
+                   }
+               }
+               .store(in: &subscriptions)
+       }
+
+       private func activateDecoration(_ event: OnDecorationActivatedEvent) {
+           guard let highlights = highlights else { return }
+
+           currentHighlightCancellable = highlights.highlight(for: event.decoration.id).sink { completion in
+           } receiveValue: { [weak self] highlight in
+               guard let self = self else { return }
+               self.activateDecoration(for: highlight, on: event)
+           }
+       }
+
+       private func activateDecoration(for highlight: Highlight, on event: OnDecorationActivatedEvent) {
+           if highlightContextMenu != nil {
+               highlightContextMenu?.removeFromParent()
+           }
+
+           let menuView = HighlightContextMenu(colors: [.red, .green, .blue, .yellow],
+                                               systemFontSize: 20)
+
+           menuView.selectedColorPublisher.sink { color in
+               self.currentHighlightCancellable?.cancel()
+               self.updateHighlight(event.decoration.id, withColor: color)
+               self.highlightContextMenu?.dismiss(animated: true, completion: nil)
+           }
+           .store(in: &subscriptions)
+
+           menuView.selectedDeletePublisher.sink { _ in
+               self.currentHighlightCancellable?.cancel()
+               self.deleteHighlight(event.decoration.id)
+               self.highlightContextMenu?.dismiss(animated: true, completion: nil)
+           }
+           .store(in: &subscriptions)
+
+           self.highlightContextMenu = UIHostingController(rootView: menuView)
+
+           highlightContextMenu!.preferredContentSize = menuView.preferredSize
+           highlightContextMenu!.modalPresentationStyle = .popover
+
+           if let popoverController = highlightContextMenu!.popoverPresentationController {
+               popoverController.permittedArrowDirections = .down
+               popoverController.sourceRect = event.rect ?? .zero
+               popoverController.sourceView = self.view
+               popoverController.backgroundColor = .cyan
+               popoverController.delegate = self
+               present(highlightContextMenu!, animated: true, completion: nil)
+           }
+       }
+
     
     // MARK: - DRM
     
@@ -287,7 +369,7 @@ extension ReaderViewController: NavigatorDelegate {
         moduleDelegate?.presentError(error, from: self)
     }
     
-    func navigator(_ navigator: Navigator, shouldNavigateToNoteAt link: Link, content: String, referrer: String?) -> Bool {
+    func navigator(_ navigator: Navigator, shouldNavigateToNoteAt link: R2Shared.Link, content: String, referrer: String?) -> Bool {
         
         var title = referrer
         if let t = title {
@@ -363,4 +445,50 @@ extension ReaderViewController: OutlineTableViewControllerDelegate {
         navigator.go(to: location)
     }
 
+}
+// MARK: - Highlights management
+extension ReaderViewController {
+    func saveHighlight(_ highlight: Highlight) {
+        guard let highlights = highlights else { return }
+
+        highlights.add(highlight)
+            .sink { completion in
+                switch completion {
+                case .finished:
+                    toast(NSLocalizedString("reader_highlight_success_message", comment: "Success message when adding a bookmark"), on: self.view, duration: 1)
+                case .failure(let error):
+                    print(error)
+                    toast(NSLocalizedString("reader_highlight_failure_message", comment: "Error message when adding a new bookmark failed"), on: self.view, duration: 2)
+                }
+            } receiveValue: { _ in }
+            .store(in: &subscriptions)
+    }
+
+    func updateHighlight(_ highlightID: Highlight.Id, withColor color: HighlightColor) {
+        guard let highlights = highlights else { return }
+
+        highlights.update(highlightID, color: color)
+            .assertNoFailure()
+            .sink { completion in
+
+            }
+            .store(in: &subscriptions)
+    }
+
+    func deleteHighlight(_ highlightID: Highlight.Id)  {
+        guard let highlights = highlights else { return }
+
+        highlights.remove(highlightID)
+            .assertNoFailure()
+            .sink {}
+            .store(in: &subscriptions)
+    }
+}
+
+extension ReaderViewController: UIPopoverPresentationControllerDelegate {
+    // Prevent the popOver to be presented fullscreen on iPhones.
+    func adaptivePresentationStyle(for controller: UIPresentationController, traitCollection: UITraitCollection) -> UIModalPresentationStyle
+    {
+        return .none
+    }
 }

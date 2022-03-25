@@ -14,9 +14,12 @@ import Combine
 import R2Shared
 import R2Navigator
 import UIKit
+import SwiftUI
+
+typealias HighlightCellSwiftuiWrapper = HostingTableViewCell<HighlightCellView>
 
 protocol OutlineTableViewControllerFactory {
-    func make(publication: Publication, bookId: Book.Id, bookmarks: BookmarkRepository) -> OutlineTableViewController
+    func make(publication: Publication, bookId: Book.Id, bookmarks: BookmarkRepository,highlights:HighlightRepository) -> OutlineTableViewController
 }
 
 protocol OutlineTableViewControllerDelegate: AnyObject {
@@ -31,14 +34,17 @@ final class OutlineTableViewController: UITableViewController {
     
     let kBookmarkCell = "kBookmarkCell"
     let kContentCell = "kContentCell"
+    let kHighlightCell = "kCOntentCell"
     
     var publication: Publication!
     var bookId: Book.Id!
     var bookmarkRepository: BookmarkRepository!
+    var highlightRepository: HighlightRepository!
   
     // Outlines (list of links) to display for each section.
-    private var outlines: [Section: [(level: Int, link: Link)]] = [:]
+    private var outlines: [Section: [(level: Int, link: R2Shared.Link)]] = [:]
     private var bookmarks: [Bookmark] = []
+    private var highlights: [Highlight] = []
     
     private var subscriptions = Set<AnyCancellable>()
 
@@ -48,7 +54,7 @@ final class OutlineTableViewController: UITableViewController {
     }
 
     private enum Section: Int {
-        case tableOfContents = 0, bookmarks, pageList, landmarks
+        case tableOfContents = 0, bookmarks, pageList, landmarks, highlights
     }
     
     private var section: Section {
@@ -67,7 +73,7 @@ final class OutlineTableViewController: UITableViewController {
         tableView.dataSource = self
         tableView.tintColor = UIColor.black
 
-        func flatten(_ links: [Link], level: Int = 0) -> [(level: Int, link: Link)] {
+        func flatten(_ links: [R2Shared.Link], level: Int = 0) -> [(level: Int, link: R2Shared.Link)] {
             return links.flatMap { [(level, $0)] + flatten($0.children, level: level + 1) }
         }
         
@@ -84,6 +90,15 @@ final class OutlineTableViewController: UITableViewController {
                 self.tableView.reloadData()
             }
             .store(in: &subscriptions)
+        highlightRepository.all(for: bookId).assertNoFailure()
+            .sink{
+                highlights in
+                self.highlights = highlights
+                self.tableView.reloadData()
+            }
+            .store(in: &subscriptions)
+        
+        tableView.register(HighlightCellSwiftuiWrapper.self, forCellReuseIdentifier: kHighlightCell)
 
     }
     
@@ -91,6 +106,8 @@ final class OutlineTableViewController: UITableViewController {
         switch section {
         case .bookmarks:
             return bookmarks[indexPath.row].locator
+        case .highlights:
+            return highlights[indexPath.row].locator
 
         default:
             guard let outline = outlines[section],
@@ -145,6 +162,10 @@ final class OutlineTableViewController: UITableViewController {
                 }
             }()
             return cell
+        case .highlights:
+            let cell = tableView.dequeueReusableCell(withIdentifier: kHighlightCell) as! HighlightCellSwiftuiWrapper
+                        cell.host(HighlightCellView(highlight: highlights[indexPath.row]), parent: self)
+                        return cell
             
         default:
             guard let outline = outlines[section] else {
@@ -162,6 +183,8 @@ final class OutlineTableViewController: UITableViewController {
         switch section {
         case .bookmarks:
             return bookmarks.count
+        case .highlights:
+            return highlights.count
         default:
             return outlines[section]?.count ?? 0
         }

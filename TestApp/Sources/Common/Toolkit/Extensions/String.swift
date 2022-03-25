@@ -19,4 +19,17 @@ extension String {
         return components(separatedBy: invalidCharacters)
             .joined(separator: " ")
     }
+    
+    /// Returns a copy of the string after removing the given `suffix`, when present.
+        func removingSuffix(_ suffix: String) -> String {
+            guard hasSuffix(suffix) else {
+                return self
+            }
+            return String(dropLast(suffix.count))
+        }
+    
+    /// Replaces multiple whitespaces by a single space.
+        func coalescingWhitespaces() -> String {
+            replacingOccurrences(of: "[\\s\n]+", with: " ", options: .regularExpression, range: nil)
+        }
 }
