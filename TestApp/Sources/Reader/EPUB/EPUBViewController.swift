@@ -21,17 +21,27 @@ class EPUBViewController: ReaderViewController {
     
     @objc func highlightSelection() {
             if let navigator = navigator as? SelectableNavigator, let selection = navigator.currentSelection {
-                let highlight = Highlight(bookId: bookId, locator: selection.locator, color: .yellow)
+                let highlight = Highlight(bookId: bookId, locator: selection.locator, color: .yellow,annotation: .normal)
                 saveHighlight(highlight)
                 navigator.clearSelection()
-            }s
+            }
+        }
+    
+    @objc func underlineSelection() {
+        if let navigator = navigator as? SelectableNavigator, let selection = navigator.currentSelection {
+            let highlight = Highlight(bookId: bookId, locator: selection.locator, color: .yellow,annotation: .underline)
+            saveHighlight(highlight)
+            navigator.clearSelection()
+        }
+        
         }
     
     init(publication: Publication, locator: Locator?, bookId: Book.Id, books: BookRepository, bookmarks: BookmarkRepository,highlights:HighlightRepository, resourcesServer: ResourcesServer) {
         
         
         var configuration = EPUBNavigatorViewController.Configuration()
-        configuration.editingActions.append(EditingAction(title: "Highlight", action: #selector(highlightSelection)))s
+        configuration.editingActions.append(EditingAction(title: "Highlight", action: #selector(highlightSelection)))
+        configuration.editingActions.append(EditingAction(title: "Underline", action: #selector(underlineSelection)))
         let navigator = EPUBNavigatorViewController(publication: publication, initialLocation: locator, resourcesServer: resourcesServer,config: configuration)
 
         let settingsStoryboard = UIStoryboard(name: "UserSettings", bundle: nil)

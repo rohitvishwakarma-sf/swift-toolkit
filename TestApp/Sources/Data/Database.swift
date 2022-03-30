@@ -47,6 +47,7 @@ final class Database {
                 t.column("progression", .double).notNull()
                 t.column("color", .integer).notNull()
                 t.column("created", .datetime).notNull()
+                t.column("annotationType", .integer).notNull()
             }
             
             // create an index to make sorting by progression faster

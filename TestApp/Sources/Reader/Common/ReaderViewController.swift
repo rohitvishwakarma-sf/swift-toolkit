@@ -212,7 +212,15 @@ class ReaderViewController: UIViewController, Loggable {
                .assertNoFailure()
                .sink { highlights in
                    if let decorator = self.navigator as? DecorableNavigator {
-                       let decorations = highlights.map { Decoration(id: $0.id, locator: $0.locator, style: .highlight(tint: $0.color.uiColor, isActive: false)) }
+                       let decorations = highlights.map {(highlight)-> Decoration in
+                           var style: Decoration.Style = .highlight(tint: UIColor.white, isActive: false)
+                           if highlight.annotationType == .normal {
+                               style = .highlight(tint: highlight.color.uiColor, isActive: false)
+                           }
+                           else if  highlight.annotationType == .underline{
+                               style = .underline(tint: highlight.color.uiColor, isActive: false)
+                           }
+                         return  Decoration(id: highlight.id, locator: highlight.locator, style: style) }
                        decorator.apply(decorations: decorations, in: self.highlightDecorationGroup)
                    }
                }

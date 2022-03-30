@@ -19,6 +19,12 @@ enum HighlightColor: UInt8, Codable, SQLExpressible {
     case yellow = 4
 }
 
+enum AnnotationType:UInt8,Codable {
+    case normal
+    case underline
+    case strikeThrough
+}
+
 extension HighlightColor {
     var uiColor: UIColor {
         switch self {
@@ -48,20 +54,23 @@ struct Highlight: Codable {
     var created: Date = Date()
     /// Total progression in the publication.
     var progression: Double?
+    
+    var annotationType: AnnotationType
 
-    init(id: Id = UUID().uuidString, bookId: Book.Id, locator: Locator, color: HighlightColor, created: Date = Date()) {
+    init(id: Id = UUID().uuidString, bookId: Book.Id, locator: Locator, color: HighlightColor, created: Date = Date(), annotation:AnnotationType) {
         self.id = id
         self.bookId = bookId
         self.locator = locator
         self.progression = locator.locations.totalProgression
         self.color = color
         self.created = created
+        self.annotationType = annotation
     }
 }
 
 extension Highlight: TableRecord, FetchableRecord, PersistableRecord {
     enum Columns: String, ColumnExpression {
-        case id, bookId, locator, color, created, progression
+        case id, bookId, locator, color, created, progression, annotationType
     }
 }
 
