@@ -35,13 +35,33 @@ class EPUBViewController: ReaderViewController {
         }
         
         }
+    @objc func sideMarkSelection(){
+        if let navigator = navigator as? SelectableNavigator, let selection = navigator.currentSelection {
+            let highlight = Highlight(bookId: bookId, locator: selection.locator, color: .yellow,annotation: .sideMark)
+            saveHighlight(highlight)
+            navigator.clearSelection()
+        }
+        
+    }
+    @objc func strikeThroughSelection(){
+        if let navigator = navigator as? SelectableNavigator, let selection = navigator.currentSelection {
+            let highlight = Highlight(bookId: bookId, locator: selection.locator, color: .yellow,annotation: .strikeThrough)
+            saveHighlight(highlight)
+            navigator.clearSelection()
+        }
+        
+    }
     
     init(publication: Publication, locator: Locator?, bookId: Book.Id, books: BookRepository, bookmarks: BookmarkRepository,highlights:HighlightRepository, resourcesServer: ResourcesServer) {
         
         
         var configuration = EPUBNavigatorViewController.Configuration()
+        configuration.decorationTemplates["sidemark"] = TemplateFactory.getSideMarkTemplate()
+        configuration.decorationTemplates["strikethrough"] = TemplateFactory.getStrikeThroughTemplate()
         configuration.editingActions.append(EditingAction(title: "Highlight", action: #selector(highlightSelection)))
         configuration.editingActions.append(EditingAction(title: "Underline", action: #selector(underlineSelection)))
+        configuration.editingActions.append(EditingAction(title: "Sidemark", action: #selector(sideMarkSelection)))
+        configuration.editingActions.append(EditingAction(title: "Strike Through", action: #selector(strikeThroughSelection)))
         let navigator = EPUBNavigatorViewController(publication: publication, initialLocation: locator, resourcesServer: resourcesServer,config: configuration)
 
         let settingsStoryboard = UIStoryboard(name: "UserSettings", bundle: nil)
@@ -181,3 +201,96 @@ extension EPUBViewController: UserSettingsNavigationControllerDelegate {
 //        return .none
 //    }
 //}
+
+// MARK: Decoration Template
+class TemplateFactory {
+  public static func getSideMarkTemplate()->HTMLDecorationTemplate {
+         
+        
+        return HTMLDecorationTemplate(
+            layout: .bounds,
+            width: .page,
+            element: { decoration in
+                let config = decoration.style.config as! SidemarkConfig
+                let tint = config.tint ?? UIColor.red
+                var css = ""
+                css += "background-color: \(tint.cssValue(alpha: 100)) !important;"
+                return """
+                        <div><div class="sidemark" style="--tint: \(tint.cssValue(alpha:0.5))"/></div>
+                        """
+            },
+            stylesheet: """
+                .sidemark {
+                    float: left;
+                    width: 5px;
+                    height: 100%;
+                    background-color: var(--tint);
+                    margin-left: 20px;
+                    border-radius: 3px;
+                }
+                [dir=rtl] .sidemark {
+                    float: right;
+                    margin-left: 0px;
+                    margin-right: 20px;
+                }
+                """
+        )
+    }
+    
+    public static func getStrikeThroughTemplate()-> HTMLDecorationTemplate {
+        let padding:UIEdgeInsets = UIEdgeInsets(top: 0, left: 1, bottom: 0, right: 1)
+        let cornerRadius:Int = 3
+        let className = "strikethrough"
+        return HTMLDecorationTemplate(
+            layout: .boxes,
+            element: { decoration in
+                let config = decoration.style.config as! StrikeThroughConfig
+                let tint = config.tint ?? UIColor.red
+                var css = ""
+                css += "border-bottom: 2px \(tint.cssValue(alpha: 1)) solid !important;"
+                return "<div class=\"\(className)\" style=\"\(css)\"/>"
+            },
+            
+            stylesheet:
+            """
+            .\(className) {
+                margin-left: \(-padding.left)px;
+                padding-right: \(padding.left + padding.right)px;
+                margin-top: \(-padding.top)px;
+                padding-bottom: \(padding.top + padding.bottom)px;
+                border-radius: \(cornerRadius)px;
+                transform: translateY(-50%);
+                
+            }
+            """
+        )
+    }
+}
+
+public struct SidemarkConfig: Hashable {
+    public var tint: UIColor?
+    public var isActive: Bool
+    public init(tint: UIColor? = nil, isActive: Bool = false) {
+        self.tint = tint
+        self.isActive = isActive
+    }
+}
+
+public struct StrikeThroughConfig: Hashable {
+    public var tint: UIColor?
+    public var isActive: Bool
+    public init(tint: UIColor? = nil, isActive: Bool = false) {
+        self.tint = tint
+        self.isActive = isActive
+    }
+}
+
+public struct NoteConfig: Hashable {
+    public var tint: UIColor?
+    public var isActive: Bool
+    public init(tint: UIColor? = nil, isActive: Bool = false) {
+        self.tint = tint
+        self.isActive = isActive
+    }
+}
+

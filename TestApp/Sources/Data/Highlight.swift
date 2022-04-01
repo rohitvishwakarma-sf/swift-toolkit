@@ -23,6 +23,7 @@ enum AnnotationType:UInt8,Codable {
     case normal
     case underline
     case strikeThrough
+    case sideMark
 }
 
 extension HighlightColor {
