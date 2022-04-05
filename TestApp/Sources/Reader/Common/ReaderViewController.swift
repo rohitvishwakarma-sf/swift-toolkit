@@ -224,6 +224,8 @@ class ReaderViewController: UIViewController, Loggable {
                                style = .init(id: "sidemark", config: SidemarkConfig(tint: highlight.color.uiColor, isActive: false))
                            }else if highlight.annotationType == .strikeThrough {
                                style = .init(id: "strikethrough", config: StrikeThroughConfig(tint: highlight.color.uiColor, isActive: false))
+                           }else if highlight.annotationType == .note {
+                               style = .init(id: "note", config: NoteConfig(tint: highlight.color.uiColor, isActive: false,locator: highlight.locator))
                            }
                          return  Decoration(id: highlight.id, locator: highlight.locator, style: style) }
                        decorator.apply(decorations: decorations, in: self.highlightDecorationGroup)

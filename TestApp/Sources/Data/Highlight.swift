@@ -24,6 +24,7 @@ enum AnnotationType:UInt8,Codable {
     case underline
     case strikeThrough
     case sideMark
+    case note
 }
 
 extension HighlightColor {
